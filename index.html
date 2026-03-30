@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Check-in</title>
+
+<style>
+body {
+  background: #0f172a;
+  color: white;
+  text-align: center;
+  font-family: Arial;
+}
+.card {
+  background: #1e293b;
+  padding: 15px;
+  margin: 10px;
+  border-radius: 15px;
+}
+</style>
+</head>
+
+<body>
+
+<h2>🎟️ PROM CHECK-IN</h2>
+
+<div class="card">
+  Tổng QR: <span id="total">0</span><br>
+  Tổng lượt dùng: <span id="used">0</span>
+</div>
+
+<div class="card">
+  <div id="reader"></div>
+  <h3 id="result"></h3>
+</div>
+
+<script src="https://unpkg.com/html5-qrcode"></script>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+import { getFirestore, doc, getDoc, updateDoc, collection, getDocs } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDjn7FHdp8rmorkZl0vZwJSgwpHCLfoQMc",
+  authDomain: "prom-qr.firebaseapp.com",
+  projectId: "prom-qr"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// DASHBOARD
+async function loadData() {
+    let snapshot = await getDocs(collection(db, "codes"));
+
+    let total = 0;
+    let used = 0;
+
+    snapshot.forEach(doc => {
+        total++;
+        used += doc.data().used;
+    });
+
+    document.getElementById("total").innerText = total;
+    document.getElementById("used").innerText = used;
+}
+
+loadData();
+
+// SCAN
+async function onScanSuccess(decodedText) {
+
+    let url = new URL(decodedText);
+    let id = url.searchParams.get("id");
+
+    let ref = doc(db, "codes", id);
+    let snap = await getDoc(ref);
+
+    if (!snap.exists()) {
+        document.getElementById("result").innerText = "❌ QR không hợp lệ";
+        return;
+    }
+
+    let data = snap.data();
+
+    if (data.used >= 3) {
+        document.getElementById("result").innerText = "❌ Hết lượt";
+        return;
+    }
+
+    await updateDoc(ref, {
+        used: data.used + 1
+    });
+
+    document.getElementById("result").innerText =
+        "✅ Thành công (" + (data.used + 1) + "/3)";
+
+    loadData();
+}
+
+// CAMERA
+const scanner = new Html5QrcodeScanner("reader", {
+    fps: 10,
+    qrbox: 250
+});
+scanner.render(onScanSuccess);
+
+</script>
+
+</body>
+</html>
